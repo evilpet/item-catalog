@@ -1,0 +1,77 @@
+diff --git a/app.py b/app.py
+index 095d229..1a406be 100644
+--- a/app.py
++++ b/app.py
+@@ -28,8 +28,10 @@ def search(name):
+ def user_items(username):
+     """Return all rows for a username (used to render a user's dashboard)."""
+     conn = sqlite3.connect(DB)
++    # Parameterized query: the username is bound as a value, never interpolated
++    # into the SQL text, which prevents SQL injection (CWE-89).
+     rows = conn.execute(
+-        "SELECT id, username, password FROM users WHERE username = '" + username + "'"
++        "SELECT id, username, password FROM users WHERE username = ?", (username,)
+     ).fetchall()
+     conn.close()
+     return rows
+diff --git a/conftest.py b/conftest.py
+new file mode 100644
+index 0000000..ee715c8
+--- /dev/null
++++ b/conftest.py
+@@ -0,0 +1,19 @@
++"""Shared pytest fixtures for the item-catalog test suite.
++
++Provides a fresh, in-memory-style SQLite database (in a temp dir) for every test
++so the suite is hermetic: it does not depend on a pre-existing ``items.db`` and
++never leaves a database file in the source tree.
++"""
++import os
++
++import pytest
++
++import app
++
++
++@pytest.fixture(autouse=True)
++def _database(tmp_path, monkeypatch):
++    db_path = os.path.join(str(tmp_path), "items.db")
++    monkeypatch.setattr(app, "DB", db_path)
++    app.init_db()
++    yield db_path
+diff --git a/test_user_items.py b/test_user_items.py
+new file mode 100644
+index 0000000..2fff166
+--- /dev/null
++++ b/test_user_items.py
+@@ -0,0 +1,30 @@
++"""CWE-89 regression tests for user_items().
++
++On the original code these payloads injected SQL and returned other users'
++credentials / arbitrary tables. The parameterized query treats the input as a
++literal username, so none of these payloads return rows.
++"""
++from app import user_items
++
++
++def test_user_items_boolean_injection_returns_no_rows():
++    # "OR 1=1" must not dump other users' credentials. 'bob' does not exist,
++    # so the parameterized query returns no rows.
++    rows = user_items("bob' OR '1'='1")
++    assert rows == []
++
++
++def test_user_items_union_injection_cannot_read_other_tables():
++    # A UNION payload must not inject arbitrary rows from other tables.
++    rows = user_items("x' UNION SELECT 999, 'INJECTED_FLAG', 42 -- ")
++    assert rows == []
++
++
++def test_user_items_subquery_injection_cannot_exfiltrate():
++    # A scalar-subquery UNION payload must not leak secrets from other tables.
++    rows = user_items(
++        "x' UNION SELECT (SELECT count(*) FROM users), "
++        "(SELECT password FROM users WHERE username='alice'), "
++        "(SELECT price FROM items WHERE name='widget') -- "
++    )
++    assert rows == []

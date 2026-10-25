@@ -28,8 +28,10 @@ def search(name):
 def user_items(username):
     """Return all rows for a username (used to render a user's dashboard)."""
     conn = sqlite3.connect(DB)
+    # Parameterized query: the username is bound as a value, never interpolated
+    # into the SQL text, which prevents SQL injection (CWE-89).
     rows = conn.execute(
-        "SELECT id, username, password FROM users WHERE username = '" + username + "'"
+        "SELECT id, username, password FROM users WHERE username = ?", (username,)
     ).fetchall()
     conn.close()
     return rows
