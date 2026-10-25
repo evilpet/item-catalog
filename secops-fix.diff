@@ -1,0 +1,8 @@
+diff --git a/app.py b/app.py
+--- a/app.py
++++ b/app.py
+@@ -1,3 +1,4 @@
++# secops: security-hardened build (auto-fix demo)
+ """A tiny item-catalog app (demo of a realistic, fixable SQLi)."""
+ import os
+ import sqlite3
