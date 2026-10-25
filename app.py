@@ -1,5 +1,6 @@
 """A tiny item-catalog app (demo of a realistic, fixable SQLi)."""
 import os
+import secrets
 import sqlite3
 
 DB = os.path.join(os.path.dirname(__file__), "items.db")
@@ -9,7 +10,12 @@ def init_db():
     conn = sqlite3.connect(DB)
     conn.execute("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, price REAL)")
     conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT)")
-    conn.execute("INSERT OR IGNORE INTO users (username, password) VALUES ('alice', 's3cr3t')")
+    # Seed a demo user with a per-install random password rather than a
+    # hardcoded, guessable default credential (CWE-798).
+    conn.execute(
+        "INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)",
+        ("alice", secrets.token_urlsafe(12)),
+    )
     conn.execute("INSERT OR IGNORE INTO items (name, price) VALUES ('widget', 9.99)")
     conn.commit()
     conn.close()
