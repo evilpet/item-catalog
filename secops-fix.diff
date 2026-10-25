@@ -1,0 +1,67 @@
+diff --git a/app.py b/app.py
+index 095d229..5d7d091 100644
+--- a/app.py
++++ b/app.py
+@@ -18,9 +18,11 @@ def init_db():
+ def search(name):
+     """Return items whose name matches. (Public API used by the search endpoint.)"""
+     conn = sqlite3.connect(DB)
+-    # Build the query by embedding the user-supplied name.
+-    query = "SELECT id, name, price FROM items WHERE name = '" + name + "'"
+-    rows = conn.execute(query).fetchall()
++    # Parameterized query: the user-supplied name is bound as a value, never
++    # interpolated into the SQL text, which prevents SQL injection (CWE-89).
++    rows = conn.execute(
++        "SELECT id, name, price FROM items WHERE name = ?", (name,)
++    ).fetchall()
+     conn.close()
+     return rows
+ 
+diff --git a/conftest.py b/conftest.py
+new file mode 100644
+index 0000000..ee715c8
+--- /dev/null
++++ b/conftest.py
+@@ -0,0 +1,19 @@
++"""Shared pytest fixtures for the item-catalog test suite.
++
++Provides a fresh, in-memory-style SQLite database (in a temp dir) for every test
++so the suite is hermetic: it does not depend on a pre-existing ``items.db`` and
++never leaves a database file in the source tree.
++"""
++import os
++
++import pytest
++
++import app
++
++
++@pytest.fixture(autouse=True)
++def _database(tmp_path, monkeypatch):
++    db_path = os.path.join(str(tmp_path), "items.db")
++    monkeypatch.setattr(app, "DB", db_path)
++    app.init_db()
++    yield db_path
+diff --git a/test_app.py b/test_app.py
+index 7c3309d..191878e 100644
+--- a/test_app.py
++++ b/test_app.py
+@@ -4,3 +4,18 @@ from app import search
+ def test_search_widget():
+     rows = search("widget")
+     assert any(r[1] == "widget" for r in rows)
++
++
++def test_search_boolean_injection_returns_no_rows():
++    # CWE-89 regression: a SQL "OR 1=1" payload must be treated as a literal
++    # item name, not executed as SQL. On the vulnerable code this returned the
++    # 'widget' row (non-empty); the parameterized query returns no rows.
++    rows = search("nope' OR '1'='1")
++    assert rows == []
++
++
++def test_search_union_injection_cannot_read_other_tables():
++    # CWE-89 regression: a UNION payload must not cause rows from another table
++    # (e.g. users) to be returned through the search endpoint.
++    rows = search("x' UNION SELECT id, username, password FROM users -- ")
++    assert rows == []
