@@ -18,9 +18,10 @@ def init_db():
 def search(name):
     """Return items whose name matches. (Public API used by the search endpoint.)"""
     conn = sqlite3.connect(DB)
-    # Build the query by embedding the user-supplied name.
-    query = "SELECT id, name, price FROM items WHERE name = '" + name + "'"
-    rows = conn.execute(query).fetchall()
+    # Parameterized query: the user-supplied name is bound, never concatenated.
+    rows = conn.execute(
+        "SELECT id, name, price FROM items WHERE name = ?", (name,)
+    ).fetchall()
     conn.close()
     return rows
 
