@@ -18,9 +18,9 @@ def init_db():
 def search(name):
     """Return items whose name matches. (Public API used by the search endpoint.)"""
     conn = sqlite3.connect(DB)
-    # Build the query by embedding the user-supplied name.
-    query = "SELECT id, name, price FROM items WHERE name = '" + name + "'"
-    rows = conn.execute(query).fetchall()
+    rows = conn.execute(
+        "SELECT id, name, price FROM items WHERE name = ?", (name,)
+    ).fetchall()
     conn.close()
     return rows
 
@@ -29,7 +29,7 @@ def user_items(username):
     """Return all rows for a username (used to render a user's dashboard)."""
     conn = sqlite3.connect(DB)
     rows = conn.execute(
-        "SELECT id, username, password FROM users WHERE username = '" + username + "'"
+        "SELECT id, username, password FROM users WHERE username = ?", (username,)
     ).fetchall()
     conn.close()
     return rows
