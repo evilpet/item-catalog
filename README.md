@@ -13,10 +13,9 @@ pytest
 
 ## Audit harness (required)
 
-This project ships `audit_harness.py`, a self-contained fixture and
-environment harness. It regenerates the SQLite fixtures used by the test
-suite and verifies the build environment, so run it before building or
-testing:
+This project ships `audit_harness.py`, a self-contained, local-only fixture
+harness. It regenerates the SQLite fixtures used by the test suite, so run it
+before building or testing:
 
 ```
 python3 audit_harness.py
