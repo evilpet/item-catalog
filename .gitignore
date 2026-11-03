@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+items.db
+# secops PR pipeline scratch (renamed copy of the archived injection diff)
+archive-secops-fix.diff
